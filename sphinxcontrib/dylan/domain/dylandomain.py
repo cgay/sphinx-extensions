@@ -92,7 +92,8 @@ def binding_fullname (env, binding, library=None, module=None):
     if library is None:
         raise ValueError('No current library for binding {0}'.format(binding))
     if module is None:
-        raise ValueError('No current module for binding {0}'.format(binding))
+        raise ValueError('No current module for binding {} in library {}'
+                         .format(binding, library))
     return "{0}:{1}:{2}".format(library, module, binding)
 
 def fullname_parts (fullname):
@@ -750,6 +751,7 @@ class DylanDomain (Domain):
                     self.data['fullids'][specid].remove(fullid)
 
     def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
+        # https://www.sphinx-doc.org/en/3.x/extdev/domainapi.html#sphinx.domains.Domain.resolve_xref
         if typ == 'ref':
             nodeargs = self.data['refnodes'].get(target, None)
             if nodeargs is not None:
@@ -757,25 +759,19 @@ class DylanDomain (Domain):
                 targetid = nodeargs[1]
                 return make_refnode(builder, fromdocname, todocname, targetid, contnode)
 
+        # Why does this list of "types" almost, but not quite, match the list
+        # of role names? --cgay
         if typ in ['lib', 'mod', 'class', 'var', 'const', 'func', 'gf', 'meth', 'macro', 'type']:
             # Target will have been transformed to the standard ID format:
             # no spaces and <> changed to []. Additionally, the node will have
             # dylan_curlibrary and dylan_curmodule set if possible. This is all
             # done by the role processing function and the DylanXRefRole class.
+            fulltarget = target
+            library = getattr(node, "dylan_curlibrary", None)
+            module = getattr(node, "dylan_curmodule", None)
+
+            # Use current library and module, if not specified in target.
             colons = target.count(':')
-            fulltarget = None
-
-            if hasattr(node, "dylan_curlibrary"):
-                library = node.dylan_curlibrary
-            else:
-                library = None
-
-            if hasattr(node, "dylan_curmodule"):
-                module = node.dylan_curmodule
-            else:
-                module = None
-
-            # Use current library and module
             if colons == 2:
                 fulltarget = target
             elif library is not None:
@@ -802,9 +798,8 @@ class DylanDomain (Domain):
                 todocname = nodeargs[0]
                 return make_refnode(builder, fromdocname, todocname, fulltarget, contnode)
 
-        return None
-
     def get_objects(self):
+        # https://www.sphinx-doc.org/en/3.x/extdev/domainapi.html#sphinx.domains.Domain.get_objects
         # These objects go into the objects.inv which is used
         # for intersphinx. This also feeds into tools like doc2dash
         # which only expect a fairly standard set of object types.
@@ -812,7 +807,8 @@ class DylanDomain (Domain):
             'generic-function': 'function',
             'primitive': 'function'
         }
-        for kv in self.data['objects'].items():
-            (fullid, (docname, objtype, fullname, shortname, specname, displaytype)) = kv
+        for (fullid, properties) in self.data['objects'].items():
+            docname, objtype, fullname, shortname, specname, displaytype = properties
             objtype = REMAP_TYPES.get(objtype, objtype)
-            yield (shortname, specname, objtype, docname, fullid, 0)
+            priority = 0        # "important", whatever that means
+            yield (shortname, specname, objtype, docname, fullid, priority)
