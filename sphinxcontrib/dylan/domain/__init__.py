@@ -15,5 +15,13 @@ from .dylandomain import DylanDomain
 def setup (app):
     # app is described here:
     # https://www.sphinx-doc.org/en/3.x/extdev/appapi.html#sphinx.application.Sphinx
-    app.add_config_value('dylan_drm_url', 'https://opendylan.org/books/drm/', 'html')
+    app.add_crossref_type(
+        directivename = 'dylan_http',
+        rolename = 'func',
+    )
+    app.add_config_value(
+        name = 'dylan_drm_url',
+        default = 'https://opendylan.org/books/drm/',
+        rebuild = 'html',
+    )
     app.add_domain(DylanDomain)
